@@ -88,7 +88,7 @@ def migrate(
 
 @app.command()
 def migrate_up(
-    revision: str = typer.Option("head", help="Target revision"),
+    revision: str = typer.Argument("head", help="Target revision"),
 ):
     """Apply database migrations"""
     import subprocess
@@ -99,7 +99,7 @@ def migrate_up(
 
 @app.command()
 def migrate_down(
-    revision: str = typer.Option("-1", help="Target revision"),
+    revision: str = typer.Argument("-1", help="Target revision (use -1 for previous)"),
 ):
     """Rollback database migrations"""
     import subprocess
