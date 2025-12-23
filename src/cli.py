@@ -99,10 +99,14 @@ def migrate_up(
 
 @app.command()
 def migrate_down(
-    revision: str = typer.Argument("-1", help="Target revision (use -1 for previous)"),
+    revision: str = typer.Argument("previous", help="Target revision ('previous' for -1, or specific revision)"),
 ):
     """Rollback database migrations"""
     import subprocess
+
+    # Convert "previous" to "-1" for alembic
+    if revision == "previous":
+        revision = "-1"
 
     logger.info(f"Rolling back to {revision}...")
     subprocess.run(["alembic", "downgrade", revision])
