@@ -67,7 +67,7 @@ def run_api(
 
 @app.command()
 def migrate(
-    message: Optional[str] = typer.Option(None, "--message", "-m", help="Migration message"),
+    message: Optional[str] = typer.Option(None, help="Migration message"),
     autogenerate: bool = typer.Option(True, help="Auto-generate migration"),
 ):
     """Create database migration"""
@@ -82,7 +82,7 @@ def migrate(
         logger.info(f"Creating migration: {message}")
         subprocess.run(cmd)
     else:
-        logger.error("Migration message is required. Use --message or -m")
+        logger.error("Migration message is required. Use --message")
         sys.exit(1)
 
 
