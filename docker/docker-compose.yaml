@@ -1,0 +1,70 @@
+version: '3.8'
+
+services:
+  pgdb:
+    image: ankane/pgvector
+    container_name: rag_pgdb
+    restart: always
+    environment:
+      - POSTGRES_USER=pguser
+      - POSTGRES_PASSWORD=1q2w3e4r
+      - POSTGRES_DB=pgdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_storage:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pguser -d pgdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - rag_network
+
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: rag_api
+    restart: always
+    command: python -m src.cli run-api
+    environment:
+      - DB_HOST=pgdb
+      - WEBHOOK_ENABLED=true
+    env_file:
+      - ../config/.env
+    ports:
+      - "8080:8080"
+    depends_on:
+      pgdb:
+        condition: service_healthy
+    volumes:
+      - ../logs:/app/logs
+    networks:
+      - rag_network
+
+  bot:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: rag_bot
+    restart: always
+    command: python -m src.cli run-bot --polling
+    environment:
+      - DB_HOST=pgdb
+    env_file:
+      - ../config/.env
+    depends_on:
+      pgdb:
+        condition: service_healthy
+    volumes:
+      - ../logs:/app/logs
+    networks:
+      - rag_network
+
+volumes:
+  db_storage:
+
+networks:
+  rag_network:
+    driver: bridge

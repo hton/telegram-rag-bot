@@ -1,0 +1,100 @@
+"""OpenAI Embeddings Service"""
+from typing import List
+from openai import AsyncOpenAI
+from loguru import logger
+from tenacity import retry, stop_after_attempt, wait_exponential
+
+from src.core.config import settings
+from src.core.exceptions import EmbeddingError
+
+
+class OpenAIEmbedder:
+    """
+    OpenAI embeddings service using text-embedding-ada-002
+
+    Generates 1536-dimensional embeddings for queries and documents
+    """
+
+    def __init__(self):
+        self.client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+        self.model = settings.EMBEDDING_MODEL
+        self.dimensions = settings.EMBEDDING_DIMENSIONS
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        reraise=True,
+    )
+    async def embed_query(self, text: str) -> List[float]:
+        """
+        Generate embedding for a query text
+
+        Args:
+            text: Query text to embed
+
+        Returns:
+            List of floats representing the embedding vector
+
+        Raises:
+            EmbeddingError: If embedding generation fails
+        """
+        try:
+            # Prefix query for better retrieval (optional, can be configured)
+            prefixed_text = f"search_query: {text.strip()}"
+
+            logger.debug(f"Generating embedding for query: {text[:100]}...")
+
+            response = await self.client.embeddings.create(
+                model=self.model,
+                input=prefixed_text,
+                encoding_format="float",
+            )
+
+            embedding = response.data[0].embedding
+
+            # Validate dimensions
+            if len(embedding) != self.dimensions:
+                raise EmbeddingError(
+                    f"Expected {self.dimensions} dimensions, got {len(embedding)}"
+                )
+
+            logger.debug(f"Generated embedding with {len(embedding)} dimensions")
+            return embedding
+
+        except Exception as e:
+            logger.error(f"Error generating embedding: {e}")
+            raise EmbeddingError(f"Failed to generate embedding: {e}")
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        reraise=True,
+    )
+    async def embed_documents(self, texts: List[str]) -> List[List[float]]:
+        """
+        Generate embeddings for multiple documents (batch processing)
+
+        Args:
+            texts: List of document texts to embed
+
+        Returns:
+            List of embedding vectors
+        """
+        try:
+            logger.debug(f"Generating embeddings for {len(texts)} documents")
+
+            # Batch API call (OpenAI supports batch embeddings)
+            response = await self.client.embeddings.create(
+                model=self.model,
+                input=texts,
+                encoding_format="float",
+            )
+
+            embeddings = [item.embedding for item in response.data]
+
+            logger.debug(f"Generated {len(embeddings)} embeddings")
+            return embeddings
+
+        except Exception as e:
+            logger.error(f"Error generating batch embeddings: {e}")
+            raise EmbeddingError(f"Failed to generate batch embeddings: {e}")
