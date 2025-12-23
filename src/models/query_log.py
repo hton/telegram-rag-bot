@@ -25,7 +25,7 @@ class QueryLog(Base):
     feedback_enabled = Column(Boolean, default=True)
     feedback = Column(String(20), nullable=True)  # 'good', 'notbad', 'bad'
 
-    metadata = Column(JSON, default=dict)
+    query_metadata = Column(JSON, default=dict)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
 
     def __repr__(self):

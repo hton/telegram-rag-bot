@@ -142,7 +142,7 @@ class QueryService:
             source=source.value,
             processing_time_ms=processing_time_ms,
             feedback_enabled=enable_feedback,
-            metadata=metadata,
+            query_metadata=metadata,
         )
         self.db.add(query_log)
         await self.db.commit()
