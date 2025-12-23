@@ -87,5 +87,15 @@ class VectorRetriever:
             return documents
 
         except Exception as e:
+            # Проверка на отсутствие таблицы или данных
+            error_msg = str(e).lower()
+            if "does not exist" in error_msg or "relation" in error_msg:
+                logger.warning(
+                    f"Vector table '{self.table_name}' does not exist or is not accessible. "
+                    "The table needs to be created and populated by the data ingestion service."
+                )
+                return []  # Возвращаем пустой список вместо ошибки
+
+            # Для других ошибок - выбрасываем исключение
             logger.error(f"Vector retrieval failed: {e}")
             raise RetrievalError(f"Failed to retrieve documents: {e}")

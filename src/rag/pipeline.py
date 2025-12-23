@@ -79,9 +79,14 @@ class RAGPipeline:
             )
 
             if not retrieved_docs:
-                logger.warning("No documents found in vector search")
+                logger.warning("No documents found in vector search - knowledge base may be empty")
                 return RAGResult(
-                    answer="Для ответа необходимо уточнить или перефразировать вопрос, а также добавить более подробное описание.",
+                    answer=(
+                        "⚠️ База знаний еще не заполнена.\n\n"
+                        "В настоящий момент таблица с векторными эмбеддингами пуста или еще не создана. "
+                        "Для работы системы необходимо загрузить данные через сервис индексации документов.\n\n"
+                        "Пожалуйста, обратитесь к администратору для заполнения базы знаний."
+                    ),
                     sources=[],
                     retrieved_docs=[],
                     reranked_sources=[],
