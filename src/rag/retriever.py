@@ -57,7 +57,7 @@ class VectorRetriever:
                     text,
                     position,
                     metadata,
-                    embedding <=> :embedding::vector AS distance
+                    embedding <=> CAST(:embedding AS vector) AS distance
                 FROM {self.table_name}
                 ORDER BY distance
                 LIMIT :limit
