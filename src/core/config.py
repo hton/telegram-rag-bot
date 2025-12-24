@@ -38,6 +38,17 @@ class Settings(BaseSettings):
     WEBHOOK_PATH: str = "/webhook/telegram"
     TELEGRAM_ENABLE_FEEDBACK: bool = True
 
+    # Security Configuration
+    RATE_LIMIT_ENABLED: bool = True  # Enable rate limiting
+    RATE_LIMIT_REQUESTS_PER_MINUTE: int = 5  # Max requests per minute per user
+    RATE_LIMIT_REQUESTS_PER_HOUR: int = 20  # Max requests per hour per user
+
+    # Whitelist Configuration (empty = all allowed)
+    WHITELIST_USERS_ENABLED: bool = False  # Enable user whitelist for private chats
+    WHITELIST_USERS: str = ""  # Comma-separated user IDs, e.g., "123456789,987654321"
+    WHITELIST_GROUPS_ENABLED: bool = False  # Enable group whitelist
+    WHITELIST_GROUPS: str = ""  # Comma-separated group/chat IDs, e.g., "-1001234567890,-1009876543210"
+
     # API Configuration
     API_HOST: str = "0.0.0.0"
     API_PORT: int = 8080

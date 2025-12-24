@@ -32,7 +32,7 @@ services:
       - DB_HOST=pgdb
       - WEBHOOK_ENABLED=true
     env_file:
-      - ../config/.env
+      - ../.env
     ports:
       - "8080:8080"
     depends_on:
@@ -53,7 +53,7 @@ services:
     environment:
       - DB_HOST=pgdb
     env_file:
-      - ../config/.env
+      - ../.env
     depends_on:
       pgdb:
         condition: service_healthy

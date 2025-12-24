@@ -8,6 +8,8 @@ from src.core.config import settings
 from src.bot.handlers import message, callback, commands
 from src.bot.middleware.logging import LoggingMiddleware
 from src.bot.middleware.typing import TypingMiddleware
+from src.bot.middleware.whitelist import WhitelistMiddleware
+from src.bot.middleware.rate_limit import RateLimitMiddleware
 
 
 def create_bot() -> Bot:
@@ -24,8 +26,17 @@ def get_dispatcher() -> Dispatcher:
     """Create and configure dispatcher with handlers and middleware"""
     dp = Dispatcher()
 
-    # Register middleware
+    # Register middleware (order matters - security checks first!)
+    # 1. Whitelist check (block unauthorized users/groups immediately)
+    dp.message.middleware(WhitelistMiddleware())
+
+    # 2. Rate limiting (prevent spam from allowed users)
+    dp.message.middleware(RateLimitMiddleware())
+
+    # 3. Logging (log allowed requests)
     dp.message.middleware(LoggingMiddleware())
+
+    # 4. Typing indicator (show bot is working)
     dp.message.middleware(TypingMiddleware())
 
     # Register routers
