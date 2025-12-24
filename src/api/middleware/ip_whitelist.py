@@ -83,6 +83,10 @@ class IPWhitelistMiddleware(BaseHTTPMiddleware):
         if request.url.path in self.EXEMPT_PATHS:
             return await call_next(request)
 
+        # Skip whitelist check for metrics (with or without trailing slash)
+        if request.url.path.startswith("/metrics"):
+            return await call_next(request)
+
         # Get client IP
         client_ip = self._get_client_ip(request)
 
