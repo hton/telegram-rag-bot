@@ -71,6 +71,84 @@ cd docker
 docker-compose up -d
 ```
 
+### Обновление Docker контейнеров
+
+Когда вы обновили код в репозитории (git pull, новый коммит и т.д.), вам нужно обновить запущенные контейнеры без потери данных:
+
+**1. Обновление без остановки сервисов (zero-downtime):**
+```bash
+cd docker
+
+# Пересобрать образы с новым кодом
+docker-compose build --no-cache
+
+# Перезапустить контейнеры с новыми образами
+# (старые контейнеры остановятся автоматически)
+docker-compose up -d
+```
+
+**2. Обновление с остановкой (если нужно):**
+```bash
+cd docker
+
+# Остановить и удалить контейнеры (данные в volumes сохраняются!)
+docker-compose down
+
+# Пересобрать образы
+docker-compose build --no-cache
+
+# Запустить заново
+docker-compose up -d
+```
+
+**3. Обновление конкретного сервиса:**
+```bash
+cd docker
+
+# Пересобрать только API сервис
+docker-compose build --no-cache api
+
+# Перезапустить только API
+docker-compose up -d api
+
+# Или только бота
+docker-compose build --no-cache bot
+docker-compose up -d bot
+```
+
+**4. Проверка статуса после обновления:**
+```bash
+# Посмотреть запущенные контейнеры
+docker-compose ps
+
+# Посмотреть логи всех сервисов
+docker-compose logs -f
+
+# Логи конкретного сервиса
+docker-compose logs -f api
+docker-compose logs -f bot
+
+# Проверить health check API
+curl http://localhost:8080/health
+```
+
+**5. Применение миграций БД после обновления:**
+```bash
+# Если были изменения в схеме БД, примените миграции
+docker-compose exec api python -m src.cli migrate-up
+
+# Или зайдите в контейнер
+docker-compose exec api bash
+python -m src.cli migrate-up
+exit
+```
+
+**Важно:**
+- ✅ **Данные в PostgreSQL сохраняются** - они хранятся в Docker volume `db_storage`
+- ✅ **Логи сохраняются** - они в директории `../logs` на хосте
+- ⚠️ При использовании `docker-compose down -v` будут **удалены все volumes** (включая БД!)
+- ⚠️ Флаг `--no-cache` заставляет Docker пересобрать образ с нуля
+
 ### Локальная разработка
 
 1. **Создайте виртуальное окружение**
