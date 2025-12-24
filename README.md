@@ -10,6 +10,7 @@ Python реализация RAG (Retrieval-Augmented Generation) бота для
 - [Установка](#установка)
   - [Требования](#требования)
   - [Быстрый старт с Docker](#быстрый-старт-с-docker)
+  - [Изменение конфигурации (.env)](#изменение-конфигурации-env)
   - [Обновление Docker контейнеров](#обновление-docker-контейнеров)
   - [Webhook режим (Production)](#webhook-режим-production)
   - [Локальная разработка](#локальная-разработка)
@@ -106,6 +107,62 @@ docker-compose up -d
 ```
 
 > 📘 **Для продакшн окружения:** См. [Настройка Webhook режима](docs/WEBHOOK_SETUP.md) для работы через HTTPS с nginx
+
+### Изменение конфигурации (.env)
+
+**Важно:** При изменении параметров в `.env` файле **НЕ нужно пересобирать образы**!
+
+Достаточно перезапустить контейнеры:
+
+**Способ 1: Удобный скрипт (рекомендуется)**
+```bash
+# Из корня проекта
+./reload-config.sh          # Перезапустить все
+./reload-config.sh bot      # Только бот
+./reload-config.sh api      # Только API
+```
+
+**Способ 2: Docker Compose напрямую**
+```bash
+cd docker
+
+# Перезапустить все сервисы
+docker-compose restart
+
+# Или только конкретный сервис
+docker-compose restart bot    # Telegram бот
+docker-compose restart api    # REST API
+```
+
+**Что происходит:**
+- ✅ Docker Compose перечитывает `.env` файл
+- ✅ Контейнеры перезапускаются с новыми переменными окружения
+- ✅ Pydantic Settings загружает новую конфигурацию
+- ⚡ Время: ~5 секунд (без пересборки образов)
+
+**Примеры изменений, не требующих rebuild:**
+- Изменение API ключей (OpenAI, Telegram)
+- Включение/выключение whitelist или rate limiting
+- Изменение лимитов запросов
+- Изменение параметров RAG (TOP_K, CONTEXT_WINDOW)
+- Включение/выключение Query Expansion
+- Изменение уровня логирования
+
+**Когда нужен rebuild (`--build`):**
+- Изменился код приложения (Python файлы)
+- Обновлены зависимости (requirements.txt)
+- Изменился Dockerfile
+
+**Проверка изменений:**
+```bash
+# Посмотреть логи после перезапуска
+docker-compose logs -f bot
+docker-compose logs -f api
+
+# Проверить что новые настройки применились
+docker logs rag_bot --tail 20
+docker logs rag_api --tail 20
+```
 
 ### Обновление Docker контейнеров
 
