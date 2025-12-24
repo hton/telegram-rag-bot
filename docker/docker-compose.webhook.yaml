@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  pgdb:
+    image: ankane/pgvector
+    container_name: rag_pgdb
+    restart: always
+    environment:
+      - POSTGRES_USER=pguser
+      - POSTGRES_PASSWORD=1q2w3e4r
+      - POSTGRES_DB=pgdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_storage:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pguser -d pgdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - rag_network
+
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: rag_api
+    restart: always
+    command: python -m src.cli run-api
+    environment:
+      - DB_HOST=pgdb
+      - WEBHOOK_ENABLED=true
+    env_file:
+      - ../config/.env
+    ports:
+      - "8080:8080"  # Внутренний порт (для nginx)
+    depends_on:
+      pgdb:
+        condition: service_healthy
+    volumes:
+      - ../logs:/app/logs
+    networks:
+      - rag_network
+
+  nginx:
+    image: nginx:alpine
+    container_name: rag_nginx
+    restart: always
+    ports:
+      - "80:80"      # HTTP
+      - "443:443"    # HTTPS
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro  # SSL сертификаты
+      - nginx_logs:/var/log/nginx
+    depends_on:
+      - api
+    networks:
+      - rag_network
+
+volumes:
+  db_storage:
+  nginx_logs:
+
+networks:
+  rag_network:
+    driver: bridge

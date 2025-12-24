@@ -92,11 +92,13 @@ cp config/.env.example .env
 # Отредактируйте .env файл
 ```
 
-3. **Запустите сервисы**
+3. **Запустите сервисы (режим polling)**
 ```bash
 cd docker
 docker-compose up -d
 ```
+
+> 📘 **Для продакшн окружения:** См. [Настройка Webhook режима](docs/WEBHOOK_SETUP.md) для работы через HTTPS с nginx
 
 ### Обновление Docker контейнеров
 
