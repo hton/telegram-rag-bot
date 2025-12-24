@@ -1,5 +1,5 @@
 """Answer generation using OpenAI LLM"""
-from typing import List, Dict, Any
+from typing import List, Dict, Any, AsyncGenerator
 from openai import AsyncOpenAI
 from loguru import logger
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -94,4 +94,73 @@ class AnswerGenerator:
 
         except Exception as e:
             logger.error(f"Error generating answer: {e}")
+            raise GenerationError(f"Failed to generate answer: {e}")
+
+    async def generate_answer_stream(
+        self,
+        question: str,
+        context: str,
+        chat_history: List[Dict[str, str]] = None,
+    ) -> AsyncGenerator[str, None]:
+        """
+        Generate answer using LLM with streaming
+
+        Args:
+            question: User's question
+            context: Retrieved documentation context
+            chat_history: Optional chat history for context
+
+        Yields:
+            Chunks of generated answer text
+
+        Raises:
+            GenerationError: If answer generation fails
+        """
+        try:
+            # Build system prompt with context
+            system_prompt = SYSTEM_PROMPT_TEMPLATE.format(question=question)
+            system_prompt += f"\n\n{context}"
+
+            # Build messages
+            messages = [
+                {"role": "system", "content": system_prompt}
+            ]
+
+            # Add chat history if available
+            if chat_history:
+                for msg in chat_history[-settings.CONTEXT_WINDOW:]:
+                    messages.append({
+                        "role": msg["role"],
+                        "content": msg["content"]
+                    })
+
+            # Add current question
+            messages.append({
+                "role": "user",
+                "content": question
+            })
+
+            logger.debug(f"Generating answer (streaming) for question: {question[:100]}...")
+
+            # Call OpenAI API with streaming
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                temperature=self.temperature,
+                max_tokens=self.max_tokens,
+                stream=True,  # Enable streaming
+            )
+
+            # Stream chunks
+            total_tokens_estimated = 0
+            async for chunk in response:
+                if chunk.choices[0].delta.content:
+                    content = chunk.choices[0].delta.content
+                    total_tokens_estimated += len(content.split())
+                    yield content
+
+            logger.info(f"Answer streaming completed. Estimated tokens: ~{total_tokens_estimated}")
+
+        except Exception as e:
+            logger.error(f"Error generating answer (streaming): {e}")
             raise GenerationError(f"Failed to generate answer: {e}")
