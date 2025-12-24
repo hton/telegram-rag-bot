@@ -3,6 +3,8 @@ from aiogram import Router, types
 from aiogram.filters import Command
 from loguru import logger
 
+from src.core.config import settings
+
 router = Router()
 
 
@@ -23,7 +25,7 @@ async def cmd_start(message: types.Message):
 **Команды:**
 /help - показать это сообщение
 /start - начать работу
-    """.format(message.bot.username, message.bot.username)
+    """.format(settings.BOT_USERNAME, settings.BOT_USERNAME)
 
     await message.answer(welcome_text)
     logger.info(f"User {message.from_user.id} started the bot")
@@ -51,7 +53,7 @@ async def cmd_help(message: types.Message):
 **Команды:**
 /start - начать работу
 /help - показать эту справку
-    """.format(message.bot.username, message.bot.username, message.bot.username)
+    """.format(settings.BOT_USERNAME, settings.BOT_USERNAME, settings.BOT_USERNAME)
 
     await message.answer(help_text)
     logger.info(f"User {message.from_user.id} requested help")
