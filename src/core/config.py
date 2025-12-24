@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     CONTEXT_WINDOW: int = 3
     TOP_K_RESULTS: int = 15
     RERANK_TOP_K: int = 5
+    QUERY_EXPANSION_ENABLED: bool = True  # Enable query expansion for better recall with abbreviations and technical terms
 
     # Telegram Bot Configuration
     TELEGRAM_BOT_TOKEN: str = ""

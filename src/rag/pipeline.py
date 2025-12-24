@@ -15,7 +15,9 @@ from src.rag.retriever import VectorRetriever
 from src.rag.reranker import LLMReranker
 from src.rag.retrieval_enhancer import RetrievalEnhancer
 from src.rag.generator import AnswerGenerator
+from src.rag.query_expander import QueryExpander
 from src.core.exceptions import RAGPipelineError
+from src.core.config import settings
 
 
 @dataclass
@@ -32,16 +34,18 @@ class RAGPipeline:
     """
     Main RAG Pipeline
 
-    Workflow (matches n8n):
-    1. Embed query (OpenAI text-embedding-ada-002)
-    2. Vector similarity search (pgvector, top 15)
-    3. LLM reranking (GPT-4o-mini, select top 5 source_path)
-    4. Fetch full documents for selected sources
-    5. Generate answer with context (GPT-4o-mini)
+    Workflow:
+    1. [Optional] Query expansion (expand with synonyms and terms)
+    2. Embed query (OpenAI text-embedding-ada-002)
+    3. Vector similarity search (pgvector, top 15)
+    4. LLM reranking (GPT-4o-mini, select top 5 source_path)
+    5. Fetch full documents for selected sources
+    6. Generate answer with context (GPT-4o-mini)
     """
 
     def __init__(self, db: AsyncSession):
         self.db = db
+        self.query_expander = QueryExpander()
         self.embedder = OpenAIEmbedder()
         self.retriever = VectorRetriever(db)
         self.reranker = LLMReranker()
@@ -70,10 +74,19 @@ class RAGPipeline:
             pipeline_start = time.time()
             logger.info(f"Starting RAG pipeline for question: {question[:100]}...")
 
+            # Step 0: Query expansion (if enabled)
+            search_query = question
+            if settings.QUERY_EXPANSION_ENABLED:
+                step_start = time.time()
+                logger.debug("Step 0: Expanding query")
+                search_query = await self.query_expander.expand_query(question)
+                step_time = (time.time() - step_start) * 1000
+                logger.info(f"⏱️ Step 0 (Query Expansion): {step_time:.0f}ms")
+
             # Step 1: Generate query embedding
             step_start = time.time()
             logger.debug("Step 1: Generating query embedding")
-            query_embedding = await self.embedder.embed_query(question)
+            query_embedding = await self.embedder.embed_query(search_query)
             step_time = (time.time() - step_start) * 1000
             logger.info(f"⏱️ Step 1 (Embedding): {step_time:.0f}ms")
 
