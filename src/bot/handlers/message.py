@@ -16,6 +16,20 @@ from src.core.config import settings
 router = Router()
 
 
+def should_request_feedback(answer: str) -> bool:
+    """
+    Определяет, нужно ли запрашивать оценку ответа.
+    Возвращает False если ответ пустой или система не нашла информацию.
+    """
+    # Ответы, для которых не нужна оценка
+    no_feedback_phrases = [
+        "Для ответа необходимо уточнить или перефразировать вопрос",
+        "База знаний еще не заполнена",
+    ]
+
+    return not any(phrase in answer for phrase in no_feedback_phrases)
+
+
 @router.message(MentionFilter())
 async def handle_question(message: types.Message):
     """Handle user questions via Telegram"""
@@ -58,8 +72,8 @@ async def handle_question(message: types.Message):
                 parse_mode="Markdown",
             )
 
-            # Send feedback buttons if enabled
-            if settings.TELEGRAM_ENABLE_FEEDBACK:
+            # Send feedback buttons if enabled and answer is valid
+            if settings.TELEGRAM_ENABLE_FEEDBACK and should_request_feedback(result.answer):
                 await message.answer(
                     "Оцените качество ответа:",
                     reply_markup=get_feedback_keyboard(result.query_id),

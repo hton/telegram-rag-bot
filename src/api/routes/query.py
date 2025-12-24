@@ -12,6 +12,18 @@ from src.core.config import settings
 router = APIRouter()
 
 
+def should_request_feedback(answer: str) -> bool:
+    """
+    Определяет, нужно ли предлагать feedback для ответа.
+    Возвращает False если ответ пустой или система не нашла информацию.
+    """
+    no_feedback_phrases = [
+        "Для ответа необходимо уточнить или перефразировать вопрос",
+        "База знаний еще не заполнена",
+    ]
+    return not any(phrase in answer for phrase in no_feedback_phrases)
+
+
 @router.post("/query", response_model=QueryResponse)
 async def process_query(
     request: QueryRequest,
@@ -41,12 +53,15 @@ async def process_query(
         )
 
         # Build response
+        # Определяем, нужно ли включать feedback
+        can_feedback = request.enable_feedback and should_request_feedback(result.answer)
+
         response = QueryResponse(
             query_id=result.query_id,
             answer=result.answer,
             sources=result.sources,
-            feedback_enabled=request.enable_feedback,
-            feedback_url=f"/api/v1/query/feedback/{result.query_id}" if request.enable_feedback else None,
+            feedback_enabled=can_feedback,
+            feedback_url=f"/api/v1/query/feedback/{result.query_id}" if can_feedback else None,
             processing_time_ms=result.processing_time_ms,
             timestamp=result.timestamp,
         )
