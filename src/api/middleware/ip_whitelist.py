@@ -23,6 +23,7 @@ class IPWhitelistMiddleware(BaseHTTPMiddleware):
     # Endpoints that don't require IP whitelist check
     EXEMPT_PATHS = {
         "/health",
+        "/metrics",  # Prometheus metrics for monitoring
     }
 
     def __init__(self, app):
