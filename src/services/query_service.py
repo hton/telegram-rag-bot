@@ -117,7 +117,7 @@ class QueryService:
             )
 
         except Exception as e:
-            logger.error(f"Error processing query: {e}", query_id=query_id)
+            logger.error("Error processing query: {} (query_id: {})", e, query_id)
             raise
 
     async def _log_query(

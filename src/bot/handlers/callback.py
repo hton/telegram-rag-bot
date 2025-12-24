@@ -48,5 +48,5 @@ async def handle_feedback(callback: types.CallbackQuery):
         logger.info(f"Feedback saved: {rating} for query {query_id} from user {callback.from_user.id}")
 
     except Exception as e:
-        logger.error(f"Error handling feedback: {e}", exc_info=True)
+        logger.error("Error handling feedback: {}", e, exc_info=True)
         await callback.answer("Ошибка при сохранении обратной связи")

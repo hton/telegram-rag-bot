@@ -61,7 +61,7 @@ async def process_query(
         return response
 
     except Exception as e:
-        logger.error(f"Error processing query: {e}", exc_info=True)
+        logger.error("Error processing query: {}", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -87,5 +87,5 @@ async def submit_feedback(
         }
 
     except Exception as e:
-        logger.error(f"Error saving feedback: {e}", exc_info=True)
+        logger.error("Error saving feedback: {}", e, exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))

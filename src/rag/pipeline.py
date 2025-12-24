@@ -143,7 +143,7 @@ class RAGPipeline:
             )
 
         except Exception as e:
-            logger.error(f"RAG pipeline failed: {e}", exc_info=True)
+            logger.error("RAG pipeline failed: {}", e, exc_info=True)
             raise RAGPipelineError(f"RAG pipeline execution failed: {e}")
 
     async def run_with_debug(

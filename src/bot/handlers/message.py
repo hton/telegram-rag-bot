@@ -71,7 +71,7 @@ async def handle_question(message: types.Message):
             )
 
     except Exception as e:
-        logger.error(f"Error handling question: {e}", exc_info=True)
+        logger.error("Error handling question: {}", e, exc_info=True)
         await message.answer(
             "Произошла ошибка при обработке вашего запроса. Пожалуйста, попробуйте позже."
         )
