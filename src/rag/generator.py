@@ -7,6 +7,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 from src.core.config import settings
 from src.core.exceptions import GenerationError
 from src.rag.prompts import SYSTEM_PROMPT_TEMPLATE
+from src.core.metrics import openai_api_calls, openai_tokens_used
 
 
 class AnswerGenerator:
@@ -83,12 +84,23 @@ class AnswerGenerator:
 
             answer = response.choices[0].message.content
 
-            # Log token usage
+            # Log and track token usage
             usage = response.usage
             logger.info(
                 f"Answer generated. Tokens: {usage.total_tokens} "
                 f"(prompt: {usage.prompt_tokens}, completion: {usage.completion_tokens})"
             )
+
+            # Track metrics
+            openai_api_calls.labels(model=self.model, operation="completion").inc()
+            openai_tokens_used.labels(
+                model=self.model,
+                token_type="prompt"
+            ).inc(usage.prompt_tokens)
+            openai_tokens_used.labels(
+                model=self.model,
+                token_type="completion"
+            ).inc(usage.completion_tokens)
 
             return answer
 
@@ -151,15 +163,36 @@ class AnswerGenerator:
                 stream=True,  # Enable streaming
             )
 
-            # Stream chunks
+            # Stream chunks and count tokens
             total_tokens_estimated = 0
+            total_chars = 0
             async for chunk in response:
                 if chunk.choices[0].delta.content:
                     content = chunk.choices[0].delta.content
                     total_tokens_estimated += len(content.split())
+                    total_chars += len(content)
                     yield content
 
-            logger.info(f"Answer streaming completed. Estimated tokens: ~{total_tokens_estimated}")
+            # Estimate tokens (rough: ~4 chars per token for English/Russian mix)
+            completion_tokens_est = max(total_tokens_estimated, total_chars // 4)
+
+            # Track metrics (estimated)
+            openai_api_calls.labels(model=self.model, operation="completion_stream").inc()
+            # Note: Prompt tokens estimation from message length
+            prompt_tokens_est = sum(len(str(m.get('content', ''))) for m in messages) // 4
+            openai_tokens_used.labels(
+                model=self.model,
+                token_type="prompt"
+            ).inc(prompt_tokens_est)
+            openai_tokens_used.labels(
+                model=self.model,
+                token_type="completion"
+            ).inc(completion_tokens_est)
+
+            logger.info(
+                f"Answer streaming completed. Estimated tokens: ~{total_tokens_estimated} "
+                f"(prompt: ~{prompt_tokens_est}, completion: ~{completion_tokens_est})"
+            )
 
         except Exception as e:
             logger.error(f"Error generating answer (streaming): {e}")

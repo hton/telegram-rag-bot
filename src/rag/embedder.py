@@ -6,6 +6,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 
 from src.core.config import settings
 from src.core.exceptions import EmbeddingError
+from src.core.metrics import openai_api_calls, openai_tokens_used
 
 
 class OpenAIEmbedder:
@@ -52,6 +53,14 @@ class OpenAIEmbedder:
 
             embedding = response.data[0].embedding
 
+            # Track metrics
+            openai_api_calls.labels(model=self.model, operation="embedding").inc()
+            if hasattr(response, 'usage') and response.usage:
+                openai_tokens_used.labels(
+                    model=self.model,
+                    token_type="prompt"
+                ).inc(response.usage.total_tokens)
+
             # Validate dimensions
             if len(embedding) != self.dimensions:
                 raise EmbeddingError(
@@ -91,6 +100,14 @@ class OpenAIEmbedder:
             )
 
             embeddings = [item.embedding for item in response.data]
+
+            # Track metrics
+            openai_api_calls.labels(model=self.model, operation="embedding").inc()
+            if hasattr(response, 'usage') and response.usage:
+                openai_tokens_used.labels(
+                    model=self.model,
+                    token_type="prompt"
+                ).inc(response.usage.total_tokens)
 
             logger.debug(f"Generated {len(embeddings)} embeddings")
             return embeddings

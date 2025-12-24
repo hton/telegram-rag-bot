@@ -7,6 +7,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 from src.core.config import settings
 from src.core.exceptions import RerankingError
 from src.rag.prompts import RERANKING_SYSTEM_PROMPT, RERANKING_USER_PROMPT_TEMPLATE
+from src.core.metrics import openai_api_calls, openai_tokens_used
 
 
 class LLMReranker:
@@ -79,6 +80,18 @@ class LLMReranker:
                 temperature=0.0,
                 max_tokens=200,
             )
+
+            # Track metrics
+            openai_api_calls.labels(model=self.model, operation="reranking").inc()
+            if hasattr(response, 'usage') and response.usage:
+                openai_tokens_used.labels(
+                    model=self.model,
+                    token_type="prompt"
+                ).inc(response.usage.prompt_tokens)
+                openai_tokens_used.labels(
+                    model=self.model,
+                    token_type="completion"
+                ).inc(response.usage.completion_tokens)
 
             # Parse response (comma-separated list)
             result_text = response.choices[0].message.content.strip()

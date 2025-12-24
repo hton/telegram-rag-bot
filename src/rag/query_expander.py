@@ -7,6 +7,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 from src.core.config import settings
 from src.core.exceptions import RAGPipelineError
 from src.rag.prompts import QUERY_EXPANSION_SYSTEM_PROMPT, QUERY_EXPANSION_USER_PROMPT_TEMPLATE
+from src.core.metrics import openai_api_calls, openai_tokens_used
 
 
 class QueryExpander:
@@ -71,6 +72,18 @@ class QueryExpander:
                 temperature=0.3,  # Slightly higher for diverse terms
                 max_tokens=150,
             )
+
+            # Track metrics
+            openai_api_calls.labels(model=self.model, operation="query_expansion").inc()
+            if hasattr(response, 'usage') and response.usage:
+                openai_tokens_used.labels(
+                    model=self.model,
+                    token_type="prompt"
+                ).inc(response.usage.prompt_tokens)
+                openai_tokens_used.labels(
+                    model=self.model,
+                    token_type="completion"
+                ).inc(response.usage.completion_tokens)
 
             expanded_query = response.choices[0].message.content.strip()
 
