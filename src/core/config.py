@@ -53,8 +53,14 @@ class Settings(BaseSettings):
     API_HOST: str = "0.0.0.0"
     API_PORT: int = 8080
     API_ENABLE_FEEDBACK_BY_DEFAULT: bool = False
-    API_REQUIRE_AUTH: bool = False
-    API_KEY: Optional[str] = None
+
+    # API Security
+    API_REQUIRE_AUTH: bool = False  # Enable API key authentication
+    API_KEY: Optional[str] = None  # API key for authentication (set a strong random key)
+    API_ALLOWED_IPS: str = ""  # Comma-separated IPs allowed to access API (empty = all allowed)
+    API_RATE_LIMIT_ENABLED: bool = True  # Enable rate limiting for API
+    API_RATE_LIMIT_REQUESTS_PER_MINUTE: int = 10  # Max API requests per minute per IP
+    API_RATE_LIMIT_REQUESTS_PER_HOUR: int = 100  # Max API requests per hour per IP
 
     # Application
     DEBUG: bool = False

@@ -9,6 +9,7 @@ from src.core.config import settings
 from src.core.database import init_db, close_db
 from src.core.logging import setup_logging
 from src.api.routes import query, health, admin, metrics as metrics_route
+from src.api.middleware import APIKeyMiddleware, IPWhitelistMiddleware, APIRateLimitMiddleware
 
 
 @asynccontextmanager
@@ -35,6 +36,16 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
+
+# Add security middleware (order matters!)
+# 1. IP Whitelist (block unauthorized IPs first)
+app.add_middleware(IPWhitelistMiddleware)
+
+# 2. Rate Limiting (prevent spam from allowed IPs)
+app.add_middleware(APIRateLimitMiddleware)
+
+# 3. API Key Authentication (verify API key)
+app.add_middleware(APIKeyMiddleware)
 
 # Add CORS middleware
 app.add_middleware(
