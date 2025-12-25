@@ -57,7 +57,7 @@ class LLMReranker:
                 f"Source: {doc['source_path']}\n"
                 f"Title: {doc.get('title', 'N/A')}\n"
                 f"Heading: {doc.get('heading', 'N/A')}\n"
-                f"Text: {doc['text'][:500]}..."  # Truncate for token efficiency
+                f"Text: {doc['text'][:250]}..."  # Truncate for token efficiency
                 for doc in documents
             ])
 

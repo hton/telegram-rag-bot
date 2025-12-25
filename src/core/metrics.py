@@ -1,5 +1,8 @@
 """Prometheus metrics definitions"""
 from prometheus_client import Counter, Histogram, Gauge
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
+from loguru import logger
 
 # Query metrics
 query_counter = Counter(
@@ -77,3 +80,42 @@ active_sessions = Gauge(
     "rag_active_sessions",
     "Number of active chat sessions",
 )
+
+
+async def init_metrics_from_db(db: AsyncSession):
+    """
+    Инициализация Prometheus метрик из базы данных при старте приложения
+
+    Это обеспечивает сохранение метрик при перезапуске контейнера путем
+    восстановления счетчиков из исторических данных в таблице query_logs.
+    """
+    try:
+        logger.info("Инициализация метрик из базы данных...")
+
+        # Получить общее количество запросов по источникам
+        query = text("""
+            SELECT source, COUNT(*) as count
+            FROM query_logs
+            GROUP BY source
+        """)
+
+        result = await db.execute(query)
+        rows = result.fetchall()
+
+        for row in rows:
+            source = row.source
+            count = row.count
+
+            # Установить счетчик в историческое значение
+            # Counter._value является внутренним, но нужен для инициализации
+            current = query_counter.labels(source=source)._value.get()
+            if count > current:
+                query_counter.labels(source=source).inc(count - current)
+
+            logger.info(f"Инициализирован счетчик запросов {source}: {count}")
+
+        logger.info("Метрики успешно инициализированы из базы данных")
+
+    except Exception as e:
+        logger.warning(f"Не удалось инициализировать метрики из базы данных: {e}")
+        logger.warning("Метрики начнутся с 0")

@@ -22,7 +22,6 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
 
     # Endpoints that don't require authentication
     EXEMPT_PATHS = {
-        "/",
         "/health",
         "/docs",
         "/openapi.json",

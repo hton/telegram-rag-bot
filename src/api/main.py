@@ -6,8 +6,9 @@ from prometheus_client import make_asgi_app
 from loguru import logger
 
 from src.core.config import settings
-from src.core.database import init_db, close_db
+from src.core.database import init_db, close_db, AsyncSessionLocal
 from src.core.logging import setup_logging
+from src.core.metrics import init_metrics_from_db
 from src.api.routes import query, health, admin, metrics as metrics_route
 from src.api.middleware import APIKeyMiddleware, IPWhitelistMiddleware, APIRateLimitMiddleware
 
@@ -20,6 +21,10 @@ async def lifespan(app: FastAPI):
     logger.info("Starting FastAPI application...")
     await init_db()
     logger.info("Database initialized")
+
+    # Initialize metrics from database
+    async with AsyncSessionLocal() as db:
+        await init_metrics_from_db(db)
 
     yield
 
@@ -66,13 +71,3 @@ app.include_router(health.router, tags=["Health"])
 app.include_router(query.router, prefix="/api/v1", tags=["Query"])
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
 app.include_router(metrics_route.router, prefix="/api/v1", tags=["Metrics"])
-
-
-@app.get("/")
-async def root():
-    """Root endpoint"""
-    return {
-        "name": "Telegram RAG Bot API",
-        "version": "0.1.0",
-        "status": "running",
-    }
