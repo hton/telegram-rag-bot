@@ -69,7 +69,7 @@ class QueryExpander:
             response = await self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
-                temperature=0.3,  # Slightly higher for diverse terms
+                temperature=0.0,  # Changed from 0.3 to 0.0 for deterministic results
                 max_tokens=150,
             )
 
@@ -92,7 +92,8 @@ class QueryExpander:
                 logger.warning("Expanded query doesn't include original, prepending it")
                 expanded_query = f"{question} {expanded_query}"
 
-            logger.info(f"Query expanded: '{question}' → '{expanded_query[:100]}...'")
+            # Log full expanded query for debugging
+            logger.info(f"Query expansion: '{question}' → '{expanded_query}'")
 
             return expanded_query
 

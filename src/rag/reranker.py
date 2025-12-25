@@ -61,6 +61,10 @@ class LLMReranker:
                 for doc in documents
             ])
 
+            # Log first 3 documents to see what reranker is working with
+            logger.info(f"Reranking {len(documents)} documents for question: '{question}'")
+            logger.debug(f"First 3 documents:\n{docs_context[:800]}...")
+
             # Build messages
             messages = [
                 {"role": "system", "content": RERANKING_SYSTEM_PROMPT},
@@ -70,8 +74,6 @@ class LLMReranker:
                     top_k=top_k,
                 )}
             ]
-
-            logger.debug(f"Reranking {len(documents)} documents")
 
             # Call OpenAI API
             response = await self.client.chat.completions.create(
@@ -96,8 +98,17 @@ class LLMReranker:
             # Parse response (comma-separated list)
             result_text = response.choices[0].message.content.strip()
 
+            # Log raw LLM response for debugging (full response, not truncated)
+            logger.info(f"Reranker LLM response (length={len(result_text)}): {result_text}")
+
+            # Check if response is empty
+            if not result_text:
+                logger.warning("Reranker returned empty response! LLM may think no documents are relevant.")
+
             # Split by comma and clean
             source_paths = [s.strip() for s in result_text.split(",") if s.strip()]
+
+            logger.debug(f"Parsed source_paths: {source_paths}")
 
             # Remove duplicates while preserving order
             unique_sources = []
@@ -110,7 +121,12 @@ class LLMReranker:
             # Limit to top_k
             top_sources = unique_sources[:top_k]
 
-            logger.info(f"Reranked to {len(top_sources)} top source_path values")
+            logger.info(f"Reranked to {len(top_sources)} top source_path values: {top_sources}")
+
+            # Warn if we got too few results
+            if len(top_sources) < top_k:
+                logger.warning(f"Reranker returned only {len(top_sources)} sources (expected {top_k})")
+
             return top_sources
 
         except Exception as e:

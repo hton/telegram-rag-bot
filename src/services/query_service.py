@@ -14,6 +14,7 @@ from src.services.chat_memory import ChatMemoryService
 from src.services.feedback import FeedbackService
 from src.models.query_log import QueryLog
 from src.core.metrics import query_counter, query_duration
+from src.core.config import settings
 
 
 class QueryService:
@@ -164,8 +165,14 @@ class QueryService:
                 chat_history = await self.memory_service.get_history(memory_key)
 
             # 2. Run RAG pipeline steps manually for streaming
+            # Step 0: Query expansion (if enabled)
+            search_query = question
+            if settings.QUERY_EXPANSION_ENABLED:
+                search_query = await self.rag_pipeline.query_expander.expand_query(question)
+                logger.info(f"Query expanded for streaming: '{question}' → '{search_query}'")
+
             # Step 1: Embedding
-            query_embedding = await self.rag_pipeline.embedder.embed_query(question)
+            query_embedding = await self.rag_pipeline.embedder.embed_query(search_query)
 
             # Step 2: Vector search
             retrieved_docs = await self.rag_pipeline.retriever.similarity_search(query_embedding)

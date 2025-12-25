@@ -84,6 +84,16 @@ class VectorRetriever:
                 })
 
             logger.info(f"Retrieved {len(documents)} documents from vector search")
+
+            # Log first 3 documents to debug what vector search finds
+            if documents:
+                logger.info("Top 3 documents from vector search:")
+                for i, doc in enumerate(documents[:3], 1):
+                    logger.info(f"  {i}. {doc.get('source_path', 'N/A')}")
+                    logger.info(f"     Title: {doc.get('title', 'N/A')}")
+                    logger.info(f"     Heading: {doc.get('heading', 'N/A')}")
+                    logger.info(f"     Text preview: {doc.get('text', '')[:150]}...")
+
             return documents
 
         except Exception as e:
