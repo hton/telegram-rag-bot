@@ -1,4 +1,5 @@
 """Chat memory service for maintaining conversation context"""
+import re
 from typing import List, Dict
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
@@ -6,6 +7,40 @@ from loguru import logger
 
 from src.models.chat_history import ChatHistory
 from src.core.config import settings
+
+
+def extract_summary(answer: str) -> str:
+    """
+    Извлекает краткий ответ из структурированного HTML-ответа
+
+    Формат ответа:
+    <b>Краткий ответ</b>
+    [1-2 предложения]
+
+    <b>Подробное объяснение</b>
+    ...
+
+    Args:
+        answer: Полный HTML-ответ ассистента
+
+    Returns:
+        Краткий ответ (summary) без HTML-тегов блока
+    """
+    # Ищем текст между "</b>" после "Краткий ответ" и следующим "<b>"
+    pattern = r'<b>Краткий ответ</b>\s*(.*?)\s*<b>'
+    match = re.search(pattern, answer, re.DOTALL | re.IGNORECASE)
+
+    if match:
+        summary = match.group(1).strip()
+        # Убираем множественные переводы строк
+        summary = re.sub(r'\n\n+', '\n', summary)
+        logger.debug(f"Extracted summary: {len(summary)} chars from {len(answer)} chars answer")
+        return summary
+
+    # Fallback - если структура не найдена, берем первые 200 символов
+    # (для обратной совместимости или нестандартных ответов)
+    logger.warning(f"Could not extract summary, using fallback (first 200 chars)")
+    return answer[:200] + "..."
 
 
 class ChatMemoryService:
@@ -88,6 +123,33 @@ class ChatMemoryService:
         await self.db.commit()
 
         logger.debug(f"Added {role} message to session {session_id}")
+
+    async def add_assistant_message(
+        self,
+        session_id: str,
+        full_answer: str,
+    ) -> None:
+        """
+        Add assistant message with automatic summary extraction
+
+        Extracts only the "Краткий ответ" section from structured HTML answer
+        and saves it to chat history. This reduces token usage while preserving
+        conversation context.
+
+        Args:
+            session_id: Session identifier
+            full_answer: Full HTML-formatted answer from RAG
+        """
+        # Extract summary from structured answer
+        summary = extract_summary(full_answer)
+
+        # Save only summary to history
+        await self.add_message(session_id, "assistant", summary)
+
+        logger.debug(
+            f"Added assistant message to session {session_id} "
+            f"(summary: {len(summary)} chars, full: {len(full_answer)} chars)"
+        )
 
     async def clear_history(self, session_id: str) -> None:
         """Clear all history for a session"""

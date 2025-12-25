@@ -87,7 +87,8 @@ class QueryService:
             if enable_memory and (user_id or session_id):
                 memory_key = session_id or user_id
                 await self.memory_service.add_message(memory_key, "user", question)
-                await self.memory_service.add_message(memory_key, "assistant", rag_result.answer)
+                # Save only summary to chat history for token efficiency
+                await self.memory_service.add_assistant_message(memory_key, rag_result.answer)
 
             # 4. Log query
             processing_time_ms = (time.time() - start_time) * 1000
