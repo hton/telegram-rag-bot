@@ -1,5 +1,6 @@
 #!/bin/bash
 # Скрипт для быстрой перезагрузки конфигурации из .env без пересборки образов
+# Пересоздает контейнеры чтобы подхватить новые переменные окружения
 
 set -e
 
@@ -26,15 +27,20 @@ cd docker
 SERVICES="${1:-}"
 
 if [ -z "$SERVICES" ]; then
-    echo -e "${YELLOW}Перезапуск всех сервисов...${NC}"
-    docker-compose restart
+    echo -e "${YELLOW}Пересоздание всех сервисов с новой конфигурацией...${NC}"
+    echo -e "${BLUE}ℹ️  Останавливаем и пересоздаём контейнеры для подхвата env переменных${NC}"
+    docker-compose down
+    docker-compose up -d --no-build
     echo ""
-    echo -e "${GREEN}✅ Все сервисы перезапущены${NC}"
+    echo -e "${GREEN}✅ Все сервисы пересозданы${NC}"
 else
-    echo -e "${YELLOW}Перезапуск сервисов: $SERVICES${NC}"
-    docker-compose restart $SERVICES
+    echo -e "${YELLOW}Пересоздание сервисов: $SERVICES${NC}"
+    echo -e "${BLUE}ℹ️  Останавливаем и пересоздаём контейнеры для подхвата env переменных${NC}"
+    docker-compose stop $SERVICES
+    docker-compose rm -f $SERVICES
+    docker-compose up -d --no-build $SERVICES
     echo ""
-    echo -e "${GREEN}✅ Сервисы перезапущены: $SERVICES${NC}"
+    echo -e "${GREEN}✅ Сервисы пересозданы: $SERVICES${NC}"
 fi
 
 echo ""

@@ -153,6 +153,7 @@ class AnswerGenerator:
             })
 
             logger.debug(f"Generating answer (streaming) for question: {question[:100]}...")
+            logger.info(f"API call params: model={self.model}, temperature={self.temperature}, max_tokens={self.max_tokens}")
 
             # Call OpenAI API with streaming
             response = await self.client.chat.completions.create(
@@ -166,12 +167,16 @@ class AnswerGenerator:
             # Stream chunks and count tokens
             total_tokens_estimated = 0
             total_chars = 0
+            finish_reason = None
             async for chunk in response:
                 if chunk.choices[0].delta.content:
                     content = chunk.choices[0].delta.content
                     total_tokens_estimated += len(content.split())
                     total_chars += len(content)
                     yield content
+                # Capture finish reason
+                if chunk.choices[0].finish_reason:
+                    finish_reason = chunk.choices[0].finish_reason
 
             # Estimate tokens (rough: ~4 chars per token for English/Russian mix)
             completion_tokens_est = max(total_tokens_estimated, total_chars // 4)
@@ -191,7 +196,8 @@ class AnswerGenerator:
 
             logger.info(
                 f"Answer streaming completed. Estimated tokens: ~{total_tokens_estimated} "
-                f"(prompt: ~{prompt_tokens_est}, completion: ~{completion_tokens_est})"
+                f"(prompt: ~{prompt_tokens_est}, completion: ~{completion_tokens_est}), "
+                f"finish_reason: {finish_reason}"
             )
 
         except Exception as e:
