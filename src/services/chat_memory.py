@@ -62,12 +62,17 @@ class ChatMemoryService:
         """
         Get chat history for a session
 
+        Retrieves messages and truncates assistant responses to summaries for token
+        efficiency when sending context to GPT. Full answers remain in database for
+        feedback analysis and future Q&A caching.
+
         Args:
             session_id: Session identifier
             limit: Max number of messages (default: from config)
 
         Returns:
             List of messages in format [{"role": "user", "content": "..."}, ...]
+            Assistant messages are truncated to "Краткий ответ" section
         """
         limit = limit or self.context_window
 
@@ -81,11 +86,15 @@ class ChatMemoryService:
         result = await self.db.execute(query)
         rows = result.scalars().all()
 
-        # Reverse to get chronological order
-        history = [
-            {"role": row.role, "content": row.content}
-            for row in reversed(rows)
-        ]
+        # Reverse to get chronological order and truncate assistant messages
+        history = []
+        for row in reversed(rows):
+            content = row.content
+            # Truncate assistant messages to summary for GPT context efficiency
+            if row.role == "assistant":
+                content = extract_summary(content)
+
+            history.append({"role": row.role, "content": content})
 
         logger.debug(f"Retrieved {len(history)} messages for session {session_id}")
         return history
@@ -130,25 +139,22 @@ class ChatMemoryService:
         full_answer: str,
     ) -> None:
         """
-        Add assistant message with automatic summary extraction
+        Add assistant message to chat history
 
-        Extracts only the "Краткий ответ" section from structured HTML answer
-        and saves it to chat history. This reduces token usage while preserving
-        conversation context.
+        Saves the full HTML-formatted answer to chat history. Summary extraction
+        happens during retrieval (get_history) to reduce token usage when sending
+        context to GPT, while preserving full answers for feedback analysis.
 
         Args:
             session_id: Session identifier
             full_answer: Full HTML-formatted answer from RAG
         """
-        # Extract summary from structured answer
-        summary = extract_summary(full_answer)
-
-        # Save only summary to history
-        await self.add_message(session_id, "assistant", summary)
+        # Save full answer to history (summary extraction happens on retrieval)
+        await self.add_message(session_id, "assistant", full_answer)
 
         logger.debug(
             f"Added assistant message to session {session_id} "
-            f"(summary: {len(summary)} chars, full: {len(full_answer)} chars)"
+            f"(full answer: {len(full_answer)} chars)"
         )
 
     async def clear_history(self, session_id: str) -> None:
