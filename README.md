@@ -49,34 +49,162 @@ Python реализация RAG (Retrieval-Augmented Generation) бота для
 ## Архитектура
 
 ```
-┌─────────────────┐     ┌──────────────────┐
-│  Telegram Bot   │────▶│   QueryService   │
-└─────────────────┘     └──────────────────┘
-                                │
-┌─────────────────┐             │
-│   REST API      │────────────▶│
-└─────────────────┘             │
-                                ▼
-                        ┌──────────────────┐
-                        │   RAG Pipeline   │
-                        └──────────────────┘
-                                │
-                ┌───────────────┼───────────────┐
-                ▼               ▼               ▼
-        ┌──────────────┐ ┌──────────┐  ┌──────────────┐
-        │   Embedder   │ │Retriever │  │  Generator   │
-        │  (OpenAI)    │ │(pgvector)│  │  (OpenAI)    │
-        └──────────────┘ └──────────┘  └──────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        TELEGRAM RAG BOT ARCHITECTURE                         │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────┐                    ┌──────────────────────────┐
+│    TELEGRAM BOT         │                    │      REST API            │
+├─────────────────────────┤                    ├──────────────────────────┤
+│  Middleware:            │                    │  Middleware:             │
+│  - Logging              │                    │  - APIKey Auth           │
+│  - Typing Indicator     │                    │  - IP Whitelist          │
+│  - User/Group Whitelist │                    │  - Rate Limiting         │
+│  - Rate Limiting        │                    │                          │
+│    (5/min, 20/hr)       │                    │  Endpoints:              │
+│                         │                    │  - /api/v1/query         │
+│  Features:              │                    │  - /api/v1/feedback      │
+│  - Mention detection    │                    │  - /api/v1/admin/*       │
+│  - Feedback buttons     │                    │  - /health, /metrics     │
+│  - Webhook/Polling      │                    │                          │
+└───────────┬─────────────┘                    └───────────┬──────────────┘
+            │                                              │
+            └──────────────────┬───────────────────────────┘
+                               │
+                               ▼
+                   ┌───────────────────────┐
+                   │   QUERY SERVICE       │
+                   │  (Orchestration)      │
+                   │                       │
+                   │  • Chat Memory Mgmt   │
+                   │  • Query Logging      │
+                   │  • Metrics Tracking   │
+                   │  • Feedback Handling  │
+                   └──────────┬────────────┘
+                              │
+                              ▼
+        ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+        ┃            RAG PIPELINE (6 Steps)               ┃
+        ┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
+        ┃                                                 ┃
+        ┃  ┌───────────────────────────────────────────┐  ┃
+        ┃  │ Step 0: Query Expansion (optional)        │  ┃
+        ┃  │ • Expand abbreviations (ЗК→Закрытый       │  ┃
+        ┃  │   Контур, ЕКП→Единый Комплект             │  ┃
+        ┃  │   Поставки)                               │  ┃
+        ┃  │ • Add synonyms and technical terms        │  ┃
+        ┃  │ • Model: GPT-4o-mini                      │  ┃
+        ┃  └──────────────┬────────────────────────────┘  ┃
+        ┃                 │ ~1-2s                          ┃
+        ┃                 ▼                                ┃
+        ┃  ┌───────────────────────────────────────────┐  ┃
+        ┃  │ Step 1: Embedding                         │  ┃
+        ┃  │ • Model: text-embedding-ada-002           │  ┃
+        ┃  │ • Dimensions: 1536                        │  ┃
+        ┃  │ • Converts query → vector                 │  ┃
+        ┃  └──────────────┬────────────────────────────┘  ┃
+        ┃                 │ ~1-2s                          ┃
+        ┃                 ▼                                ┃
+        ┃  ┌───────────────────────────────────────────┐  ┃
+        ┃  │ Step 2: Vector Search                     │  ┃
+        ┃  │ • PostgreSQL + pgvector                   │  ┃
+        ┃  │ • Cosine similarity search                │  ┃
+        ┃  │ • Retrieve top 15 chunks                  │  ┃
+        ┃  │ • IVFFlat index for performance           │  ┃
+        ┃  └──────────────┬────────────────────────────┘  ┃
+        ┃                 │ ~0.1s                          ┃
+        ┃                 ▼                                ┃
+        ┃  ┌───────────────────────────────────────────┐  ┃
+        ┃  │ Step 3: LLM Reranking                     │  ┃
+        ┃  │ • Model: GPT-4o-mini                      │  ┃
+        ┃  │ • Selects top 5 most relevant sources     │  ┃
+        ┃  │ • Groups by source_path                   │  ┃
+        ┃  │ • Deterministic ranking                   │  ┃
+        ┃  └──────────────┬────────────────────────────┘  ┃
+        ┃                 │ ~3-4s                          ┃
+        ┃                 ▼                                ┃
+        ┃  ┌───────────────────────────────────────────┐  ┃
+        ┃  │ Step 4: Fetch Full Documents              │  ┃
+        ┃  │ • Retrieve complete docs from DB          │  ┃
+        ┃  │ • Context window expansion                │  ┃
+        ┃  │ • Fetch surrounding chunks                │  ┃
+        ┃  └──────────────┬────────────────────────────┘  ┃
+        ┃                 │ ~0.1s                          ┃
+        ┃                 ▼                                ┃
+        ┃  ┌───────────────────────────────────────────┐  ┃
+        ┃  │ Step 5: Aggregate Context                 │  ┃
+        ┃  │ • Combine documents                       │  ┃
+        ┃  │ • Format for LLM consumption              │  ┃
+        ┃  │ • Add metadata and structure              │  ┃
+        ┃  └──────────────┬────────────────────────────┘  ┃
+        ┃                 │ ~0.01s                         ┃
+        ┃                 ▼                                ┃
+        ┃  ┌───────────────────────────────────────────┐  ┃
+        ┃  │ Step 6: Generate Answer                   │  ┃
+        ┃  │ • Model: GPT-4o-mini                      │  ┃
+        ┃  │ • With aggregated context                 │  ┃
+        ┃  │ • With chat history (3 msgs)              │  ┃
+        ┃  │ • Temperature: 0.0 (deterministic)        │  ┃
+        ┃  └───────────────────────────────────────────┘  ┃
+        ┃                 │ ~7-10s                         ┃
+        ┗━━━━━━━━━━━━━━━━━┻━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+                          │
+                          ▼
+    ┌──────────────────────────────────────────────────────────┐
+    │                 DATA & MONITORING LAYER                   │
+    ├──────────────────────────────────────────────────────────┤
+    │                                                          │
+    │  ┌─────────────────────┐    ┌──────────────────────┐    │
+    │  │   PostgreSQL        │    │   Prometheus         │    │
+    │  ├─────────────────────┤    ├──────────────────────┤    │
+    │  │ Tables:             │    │ Metrics:             │    │
+    │  │ • openai_221225     │    │ • Query counts       │    │
+    │  │   (vectors+pgvector)│    │ • Duration stats     │    │
+    │  │ • query_logs        │    │ • Feedback ratings   │    │
+    │  │   (analytics)       │    │ • OpenAI API calls   │    │
+    │  │ • chat_history      │    │ • Token usage        │    │
+    │  │   (memory)          │    │ • Vector search      │    │
+    │  │ • feedback          │    │ • Active users       │    │
+    │  │   (ratings)         │    │                      │    │
+    │  │                     │    │ Persistence:         │    │
+    │  │ Indexes:            │    │ • Init from DB       │    │
+    │  │ • ivfflat (vector)  │    │   on startup         │    │
+    │  │ • source_path       │    │ • Survive restarts   │    │
+    │  └─────────────────────┘    └──────────────────────┘    │
+    │                                                          │
+    └──────────────────────────────────────────────────────────┘
+
+                  ┌──────────────────────────┐
+                  │    External Services     │
+                  ├──────────────────────────┤
+                  │ • OpenAI API             │
+                  │   - text-embedding-ada-002│
+                  │   - gpt-4o-mini          │
+                  │                          │
+                  │ • Telegram Bot API       │
+                  │   - Polling/Webhook      │
+                  └──────────────────────────┘
+
+Key Features:
+  • Query Expansion for abbreviations (Russian context)
+  • Deterministic RAG (temperature=0.0)
+  • Chat memory (3 message context window)
+  • Multi-layer security (whitelist, rate limiting, auth)
+  • Prometheus metrics with DB persistence
+  • Feedback collection (👍👌👎)
+
+Performance: ~10-11s total (optimized from ~23s, 55% improvement)
 ```
 
 ## RAG Pipeline
 
-0. **Query Expansion** (опционально) → Расширение запроса для лучшей обработки аббревиатур (ЗК, ЕКП, и т.д.)
+0. **Query Expansion** (опционально) → Расширение запроса для лучшей обработки аббревиатур (ЗК→Закрытый Контур, ЕКП→Единый Комплект Поставки)
 1. **Embedding** → OpenAI text-embedding-ada-002 (1536 dimensions)
-2. **Vector Search** → PostgreSQL + pgvector (top 15 results)
+2. **Vector Search** → PostgreSQL + pgvector (top 15 results, cosine similarity)
 3. **Reranking** → GPT-4o-mini (select top 5 sources)
-4. **Context Retrieval** → Fetch full documents with context window
-5. **Answer Generation** → GPT-4o-mini with streaming support
+4. **Fetch Full Documents** → Retrieve complete docs from PostgreSQL by source_path
+5. **Aggregate Context** → Combine and format documents for LLM
+6. **Answer Generation** → GPT-4o-mini with chat history (temperature=0.0, max_tokens=1000)
 
 ## Установка
 
