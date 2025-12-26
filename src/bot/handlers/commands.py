@@ -53,7 +53,7 @@ async def cmd_help(message: types.Message):
 *Команды:*
 /start - начать работу
 /help - показать эту справку
-    """.format(settings.BOT_USERNAME, settings.BOT_USERNAME, settings.BOT_USERNAME)
+    """.format(settings.BOT_USERNAME, settings.BOT_USERNAME, settings.BOT_USERNAME, settings.BOT_USERNAME)
 
     await message.answer(help_text, parse_mode="Markdown")
     logger.info(f"User {message.from_user.id} requested help")
