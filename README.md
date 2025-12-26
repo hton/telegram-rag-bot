@@ -532,6 +532,126 @@ curl http://localhost:8080/health/live
 curl http://localhost:8080/metrics
 ```
 
+#### Отправка фидбека через API
+
+API поддерживает сбор обратной связи для улучшения качества ответов. Фидбек помогает идентифицировать "хорошие" ответы для будущего использования в Q&A кэше.
+
+**1. Получение query_id**
+
+При отправке запроса включите `enable_feedback=true` для получения feedback_url:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/query \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_API_KEY" \
+  -d '{
+    "question": "Как установить платформу?",
+    "enable_feedback": true
+  }'
+```
+
+**Ответ:**
+```json
+{
+  "query_id": "343162dc-a6b3-430c-acf6-72c8380a1429",
+  "answer": "Полный ответ с инструкциями...",
+  "sources": ["https://..."],
+  "feedback_enabled": true,
+  "feedback_url": "/api/v1/query/feedback/343162dc-a6b3-430c-acf6-72c8380a1429",
+  "processing_time_ms": 10234.5,
+  "timestamp": "2025-12-26T03:56:00Z"
+}
+```
+
+**2. Отправка фидбека**
+
+Endpoint: `POST /api/v1/query/feedback/{query_id}`
+
+**Допустимые значения rating:**
+- `"good"` - хороший ответ (👍)
+- `"notbad"` - нормальный ответ (👌)
+- `"bad"` - плохой ответ (👎)
+
+**Пример 1: Положительный фидбек**
+```bash
+curl -X POST http://localhost:8080/api/v1/query/feedback/343162dc-a6b3-430c-acf6-72c8380a1429 \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_API_KEY" \
+  -d '{
+    "rating": "good"
+  }'
+```
+
+**Пример 2: Негативный фидбек с комментарием**
+```bash
+curl -X POST http://localhost:8080/api/v1/query/feedback/343162dc-a6b3-430c-acf6-72c8380a1429 \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: YOUR_API_KEY" \
+  -d '{
+    "rating": "bad",
+    "comment": "Ответ не содержит информацию о версии 2025.10"
+  }'
+```
+
+**Ответ:**
+```json
+{
+  "status": "success",
+  "message": "Feedback saved successfully",
+  "query_id": "343162dc-a6b3-430c-acf6-72c8380a1429",
+  "rating": "good"
+}
+```
+
+**3. Хранение фидбека**
+
+Фидбек сохраняется в двух таблицах PostgreSQL:
+- `feedback` - детальная информация (query_id, rating, comment, created_at)
+- `query_logs` - поле feedback для быстрой аналитики
+
+**4. Пример на Python**
+
+```python
+import requests
+
+API_URL = "http://localhost:8080/api/v1"
+API_KEY = "your-api-key"
+
+headers = {
+    "Content-Type": "application/json",
+    "X-API-Key": API_KEY
+}
+
+# Отправить вопрос
+response = requests.post(
+    f"{API_URL}/query",
+    headers=headers,
+    json={
+        "question": "Как настроить multipath?",
+        "enable_feedback": True
+    }
+)
+
+data = response.json()
+query_id = data["query_id"]
+
+# Отправить фидбек
+feedback = requests.post(
+    f"{API_URL}/query/feedback/{query_id}",
+    headers=headers,
+    json={
+        "rating": "good",
+        "comment": "Очень подробный ответ с примерами команд"
+    }
+)
+```
+
+**Настройки в .env:**
+```bash
+# Фидбек по умолчанию выключен (нужно явно включать в запросе)
+API_ENABLE_FEEDBACK_BY_DEFAULT=false
+```
+
 ### Telegram Bot
 
 1. Найдите бота в Telegram: `@your_bot_username`
