@@ -16,18 +16,18 @@ async def cmd_start(message: types.Message):
 
 Я IT-помощник, готовый ответить на ваши вопросы.
 
-**Как пользоваться:**
+*Как пользоваться:*
 Просто упомяните меня в сообщении (@{}) и задайте вопрос.
 
 Например:
-`@{} Как установить платформу?`
+@{} Как установить платформу?
 
-**Команды:**
+*Команды:*
 /help - показать это сообщение
 /start - начать работу
     """.format(settings.BOT_USERNAME, settings.BOT_USERNAME)
 
-    await message.answer(welcome_text)
+    await message.answer(welcome_text, parse_mode="Markdown")
     logger.info(f"User {message.from_user.id} started the bot")
 
 
@@ -35,25 +35,25 @@ async def cmd_start(message: types.Message):
 async def cmd_help(message: types.Message):
     """Handle /help command"""
     help_text = """
-**Справка**
+*Справка*
 
 Я отвечаю на вопросы по IT-тематике на основе документации.
 
-**Как задать вопрос:**
+*Как задать вопрос:*
 Упомяните меня (@{}) в сообщении и напишите вопрос.
 
-**Примеры:**
+*Примеры:*
 • @{} Что такое ЕКП?
 • @{} Как установить платформу в закрытом контуре?
 • @{} Какие требования к серверу?
 
-**Оценка ответов:**
+*Оценка ответов:*
 После получения ответа вы можете оценить его качество с помощью кнопок 👍👌👎
 
-**Команды:**
+*Команды:*
 /start - начать работу
 /help - показать эту справку
     """.format(settings.BOT_USERNAME, settings.BOT_USERNAME, settings.BOT_USERNAME)
 
-    await message.answer(help_text)
+    await message.answer(help_text, parse_mode="Markdown")
     logger.info(f"User {message.from_user.id} requested help")
