@@ -44,7 +44,6 @@
 ### Performance
 - Оптимизированный RAG pipeline: 10-11s (было 23s, улучшение 55%)
 - Эффективное управление токенами
-- Streaming responses
 
 ### Security
 - Комплексная защита: API Key + IP Whitelist + Rate Limiting
