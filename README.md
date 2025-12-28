@@ -449,6 +449,7 @@ python -m src.cli run-api
 ### 🔧 Руководства администратора
 
 - **[Monitoring Guide](docs/MONITORING.md)** - Prometheus метрики и логирование
+- **[Cost Analysis](docs/COST_ANALYSIS.md)** - Расчет стоимости использования OpenAI API
 - **[Webhook Setup](docs/WEBHOOK_SETUP.md)** - Настройка webhook режима для production
 - **[Troubleshooting Guide](docs/TROUBLESHOOTING.md)** - Решение распространённых проблем
 
@@ -465,6 +466,7 @@ python -m src.cli run-api
 | Настроить безопасность | [Security Guide](docs/SECURITY.md) |
 | Изменить конфигурацию | [Configuration Guide](docs/CONFIGURATION.md) |
 | Настроить мониторинг | [Monitoring Guide](docs/MONITORING.md) |
+| Рассчитать стоимость | [Cost Analysis](docs/COST_ANALYSIS.md) |
 | Решить проблему | [Troubleshooting Guide](docs/TROUBLESHOOTING.md) |
 | Разработка | [Development Guide](docs/DEVELOPMENT.md) |
 
