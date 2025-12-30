@@ -5,6 +5,7 @@ from typing import Optional
 
 import typer
 import uvicorn
+from aiogram.dispatcher.dispatcher import BackoffConfig
 from loguru import logger
 
 from src.core.config import settings
@@ -33,7 +34,22 @@ def run_bot(
 
             if polling:
                 logger.info("Starting bot in polling mode...")
-                await dp.start_polling(bot)
+
+                # Configure backoff for flood control resistance
+                backoff_config = BackoffConfig(
+                    min_delay=settings.TELEGRAM_POLLING_BACKOFF_MIN,
+                    max_delay=settings.TELEGRAM_POLLING_BACKOFF_MAX,
+                    factor=1.5,
+                    jitter=0.1,
+                )
+
+                # Start polling with increased timeout and flood-resistant backoff
+                await dp.start_polling(
+                    bot,
+                    polling_timeout=settings.TELEGRAM_POLLING_TIMEOUT,
+                    backoff_config=backoff_config,
+                    allowed_updates=["message", "callback_query"],  # Filter only needed updates
+                )
             else:
                 # Webhook mode would be configured here
                 logger.error("Webhook mode not implemented in CLI. Use run-api instead.")

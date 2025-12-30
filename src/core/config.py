@@ -38,6 +38,11 @@ class Settings(BaseSettings):
     WEBHOOK_PATH: str = "/webhook/telegram"
     TELEGRAM_ENABLE_FEEDBACK: bool = True
 
+    # Telegram Polling Configuration
+    TELEGRAM_POLLING_TIMEOUT: int = 30  # Long-polling timeout in seconds (default: 10, recommended: 25-30)
+    TELEGRAM_POLLING_BACKOFF_MIN: float = 3.0  # Minimum retry delay in seconds (default: 1.0)
+    TELEGRAM_POLLING_BACKOFF_MAX: float = 30.0  # Maximum retry delay in seconds (default: 5.0, increase for flood control)
+
     # Security Configuration
     RATE_LIMIT_ENABLED: bool = True  # Enable rate limiting
     RATE_LIMIT_REQUESTS_PER_MINUTE: int = 5  # Max requests per minute per user
