@@ -1,5 +1,5 @@
 """Query expansion using LLM to improve retrieval recall"""
-from typing import Optional
+from typing import Optional, Tuple, Dict
 from openai import AsyncOpenAI
 from loguru import logger
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -37,7 +37,7 @@ class QueryExpander:
         wait=wait_exponential(multiplier=1, min=2, max=10),
         reraise=True,
     )
-    async def expand_query(self, question: str) -> str:
+    async def expand_query(self, question: str) -> Tuple[str, Dict[str, int]]:
         """
         Expand user query with related terms and synonyms
 
@@ -45,7 +45,7 @@ class QueryExpander:
             question: Original user question
 
         Returns:
-            Expanded query string with additional terms
+            Tuple of (expanded query string, token usage dict)
 
         Raises:
             RAGPipelineError: If expansion fails
@@ -53,7 +53,7 @@ class QueryExpander:
         try:
             if not self.enabled:
                 logger.debug("Query expansion is disabled, returning original query")
-                return question
+                return question, {"input": 0, "output": 0}
 
             # Build messages
             messages = [
@@ -73,9 +73,14 @@ class QueryExpander:
                 max_tokens=150,
             )
 
-            # Track metrics
+            # Track metrics and get token usage
             openai_api_calls.labels(model=self.model, operation="query_expansion").inc()
+            usage = {"input": 0, "output": 0}
             if hasattr(response, 'usage') and response.usage:
+                usage = {
+                    "input": response.usage.prompt_tokens,
+                    "output": response.usage.completion_tokens
+                }
                 openai_tokens_used.labels(
                     model=self.model,
                     token_type="prompt"
@@ -93,14 +98,14 @@ class QueryExpander:
                 expanded_query = f"{question} {expanded_query}"
 
             # Log full expanded query for debugging
-            logger.info(f"Query expansion: '{question}' → '{expanded_query}'")
+            logger.info(f"Query expansion: '{question}' → '{expanded_query}' ({usage['input']}+{usage['output']} tokens)")
 
-            return expanded_query
+            return expanded_query, usage
 
         except Exception as e:
             logger.error(f"Query expansion failed: {e}, using original query")
             # Fail gracefully - return original query
-            return question
+            return question, {"input": 0, "output": 0}
 
     async def expand_if_needed(self, question: str, min_length: int = 20) -> str:
         """

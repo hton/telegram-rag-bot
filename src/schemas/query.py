@@ -23,6 +23,9 @@ class QueryResult(BaseModel):
     answer: str
     sources: List[str]
     processing_time_ms: float
+    response_time_seconds: float
+    estimated_cost_usd: float
+    estimated_cost_rub: float
     timestamp: datetime
     context_used: List[Dict[str, Any]] = []
 

@@ -24,9 +24,14 @@ class QueryResponse(BaseModel):
     feedback_enabled: bool = False
     feedback_url: Optional[str] = None
 
-    # Metadata
+    # Timing
     processing_time_ms: float
+    response_time_seconds: float
     timestamp: datetime
+
+    # Cost
+    estimated_cost_usd: float
+    estimated_cost_rub: float
 
     # Debug info (only if DEBUG=true)
     debug_info: Optional[Dict[str, Any]] = None

@@ -63,6 +63,9 @@ async def process_query(
             feedback_enabled=can_feedback,
             feedback_url=f"/api/v1/query/feedback/{result.query_id}" if can_feedback else None,
             processing_time_ms=result.processing_time_ms,
+            response_time_seconds=result.response_time_seconds,
+            estimated_cost_usd=result.estimated_cost_usd,
+            estimated_cost_rub=result.estimated_cost_rub,
             timestamp=result.timestamp,
         )
 

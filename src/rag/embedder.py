@@ -1,5 +1,5 @@
 """OpenAI Embeddings Service"""
-from typing import List
+from typing import List, Tuple
 from openai import AsyncOpenAI
 from loguru import logger
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -26,7 +26,7 @@ class OpenAIEmbedder:
         wait=wait_exponential(multiplier=1, min=2, max=10),
         reraise=True,
     )
-    async def embed_query(self, text: str) -> List[float]:
+    async def embed_query(self, text: str) -> Tuple[List[float], int]:
         """
         Generate embedding for a query text
 
@@ -34,7 +34,7 @@ class OpenAIEmbedder:
             text: Query text to embed
 
         Returns:
-            List of floats representing the embedding vector
+            Tuple of (embedding vector, tokens used)
 
         Raises:
             EmbeddingError: If embedding generation fails
@@ -53,13 +53,15 @@ class OpenAIEmbedder:
 
             embedding = response.data[0].embedding
 
-            # Track metrics
+            # Track metrics and get token usage
             openai_api_calls.labels(model=self.model, operation="embedding").inc()
+            tokens_used = 0
             if hasattr(response, 'usage') and response.usage:
+                tokens_used = response.usage.total_tokens
                 openai_tokens_used.labels(
                     model=self.model,
                     token_type="prompt"
-                ).inc(response.usage.total_tokens)
+                ).inc(tokens_used)
 
             # Validate dimensions
             if len(embedding) != self.dimensions:
@@ -67,8 +69,8 @@ class OpenAIEmbedder:
                     f"Expected {self.dimensions} dimensions, got {len(embedding)}"
                 )
 
-            logger.debug(f"Generated embedding with {len(embedding)} dimensions")
-            return embedding
+            logger.debug(f"Generated embedding with {len(embedding)} dimensions, {tokens_used} tokens")
+            return embedding, tokens_used
 
         except Exception as e:
             logger.error(f"Error generating embedding: {e}")

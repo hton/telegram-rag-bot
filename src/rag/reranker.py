@@ -1,5 +1,5 @@
 """LLM-based reranking to select most relevant documents"""
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 from openai import AsyncOpenAI
 from loguru import logger
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -34,7 +34,7 @@ class LLMReranker:
         question: str,
         documents: List[Dict[str, Any]],
         top_k: int = None,
-    ) -> List[str]:
+    ) -> Tuple[List[str], Dict[str, int]]:
         """
         Use LLM to select most relevant source_path values
 
@@ -44,7 +44,7 @@ class LLMReranker:
             top_k: Number of source_path to return (default: from config)
 
         Returns:
-            List of top source_path values
+            Tuple of (list of top source_path values, token usage dict)
 
         Raises:
             RerankingError: If reranking fails
@@ -83,9 +83,14 @@ class LLMReranker:
                 max_tokens=200,
             )
 
-            # Track metrics
+            # Track metrics and get token usage
             openai_api_calls.labels(model=self.model, operation="reranking").inc()
+            usage = {"input": 0, "output": 0}
             if hasattr(response, 'usage') and response.usage:
+                usage = {
+                    "input": response.usage.prompt_tokens,
+                    "output": response.usage.completion_tokens
+                }
                 openai_tokens_used.labels(
                     model=self.model,
                     token_type="prompt"
@@ -121,13 +126,13 @@ class LLMReranker:
             # Limit to top_k
             top_sources = unique_sources[:top_k]
 
-            logger.info(f"Reranked to {len(top_sources)} top source_path values: {top_sources}")
+            logger.info(f"Reranked to {len(top_sources)} top source_path values ({usage['input']}+{usage['output']} tokens): {top_sources}")
 
             # Warn if we got too few results
             if len(top_sources) < top_k:
                 logger.warning(f"Reranker returned only {len(top_sources)} sources (expected {top_k})")
 
-            return top_sources
+            return top_sources, usage
 
         except Exception as e:
             logger.error(f"Reranking failed: {e}")

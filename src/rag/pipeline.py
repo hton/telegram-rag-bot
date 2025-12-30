@@ -21,6 +21,18 @@ from src.core.config import settings
 
 
 @dataclass
+class TokenUsage:
+    """Token usage across RAG pipeline steps"""
+    embedding: int = 0
+    query_expansion_input: int = 0
+    query_expansion_output: int = 0
+    reranking_input: int = 0
+    reranking_output: int = 0
+    generation_input: int = 0
+    generation_output: int = 0
+
+
+@dataclass
 class RAGResult:
     """Result from RAG pipeline execution"""
     answer: str
@@ -28,6 +40,7 @@ class RAGResult:
     retrieved_docs: List[Dict[str, Any]]
     reranked_sources: List[str]
     context_used: str
+    tokens_used: TokenUsage
 
 
 class RAGPipeline:
@@ -74,19 +87,25 @@ class RAGPipeline:
             pipeline_start = time.time()
             logger.info(f"Starting RAG pipeline for question: {question[:100]}...")
 
+            # Initialize token tracking
+            tokens = TokenUsage()
+
             # Step 0: Query expansion (if enabled)
             search_query = question
             if settings.QUERY_EXPANSION_ENABLED:
                 step_start = time.time()
                 logger.debug("Step 0: Expanding query")
-                search_query = await self.query_expander.expand_query(question)
+                search_query, qe_usage = await self.query_expander.expand_query(question)
+                tokens.query_expansion_input = qe_usage.get("input", 0)
+                tokens.query_expansion_output = qe_usage.get("output", 0)
                 step_time = (time.time() - step_start) * 1000
                 logger.info(f"⏱️ Step 0 (Query Expansion): {step_time:.0f}ms")
 
             # Step 1: Generate query embedding
             step_start = time.time()
             logger.debug("Step 1: Generating query embedding")
-            query_embedding = await self.embedder.embed_query(search_query)
+            query_embedding, embedding_tokens = await self.embedder.embed_query(search_query)
+            tokens.embedding = embedding_tokens
             step_time = (time.time() - step_start) * 1000
             logger.info(f"⏱️ Step 1 (Embedding): {step_time:.0f}ms")
 
@@ -112,6 +131,7 @@ class RAGPipeline:
                     retrieved_docs=[],
                     reranked_sources=[],
                     context_used="",
+                    tokens_used=tokens,
                 )
 
             logger.info(f"Retrieved {len(retrieved_docs)} documents from vector search")
@@ -119,10 +139,12 @@ class RAGPipeline:
             # Step 3: LLM-based reranking (select top 5 source_path)
             step_start = time.time()
             logger.debug("Step 3: Reranking documents with LLM")
-            top_source_paths = await self.reranker.extract_top_sources(
+            top_source_paths, rerank_usage = await self.reranker.extract_top_sources(
                 question=question,
                 documents=retrieved_docs,
             )
+            tokens.reranking_input = rerank_usage.get("input", 0)
+            tokens.reranking_output = rerank_usage.get("output", 0)
             step_time = (time.time() - step_start) * 1000
             logger.info(f"⏱️ Step 3 (Reranking): {step_time:.0f}ms")
 
@@ -134,6 +156,7 @@ class RAGPipeline:
                     retrieved_docs=retrieved_docs,
                     reranked_sources=[],
                     context_used="",
+                    tokens_used=tokens,
                 )
 
             logger.info(f"Reranked to {len(top_source_paths)} top sources: {top_source_paths}")
@@ -157,16 +180,24 @@ class RAGPipeline:
             # Step 6: Generate answer
             step_start = time.time()
             logger.debug("Step 6: Generating final answer")
-            answer = await self.generator.generate_answer(
+            answer, gen_usage = await self.generator.generate_answer(
                 question=question,
                 context=context,
                 chat_history=chat_history,
             )
+            tokens.generation_input = gen_usage.get("input", 0)
+            tokens.generation_output = gen_usage.get("output", 0)
             step_time = (time.time() - step_start) * 1000
             logger.info(f"⏱️ Step 6 (Generate Answer): {step_time:.0f}ms")
 
             pipeline_time = (time.time() - pipeline_start) * 1000
-            logger.info(f"✅ RAG pipeline completed in {pipeline_time:.0f}ms")
+            total_tokens = (
+                tokens.embedding +
+                tokens.query_expansion_input + tokens.query_expansion_output +
+                tokens.reranking_input + tokens.reranking_output +
+                tokens.generation_input + tokens.generation_output
+            )
+            logger.info(f"✅ RAG pipeline completed in {pipeline_time:.0f}ms (Total tokens: {total_tokens})")
 
             return RAGResult(
                 answer=answer,
@@ -174,6 +205,7 @@ class RAGPipeline:
                 retrieved_docs=retrieved_docs,
                 reranked_sources=top_source_paths,
                 context_used=context,
+                tokens_used=tokens,
             )
 
         except Exception as e:

@@ -1,5 +1,5 @@
 """Answer generation using OpenAI LLM"""
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 from openai import AsyncOpenAI
 from loguru import logger
 from tenacity import retry, stop_after_attempt, wait_exponential
@@ -33,7 +33,7 @@ class AnswerGenerator:
         question: str,
         context: str,
         chat_history: List[Dict[str, str]] = None,
-    ) -> str:
+    ) -> Tuple[str, Dict[str, int]]:
         """
         Generate answer using LLM
 
@@ -43,7 +43,7 @@ class AnswerGenerator:
             chat_history: Optional chat history for context
 
         Returns:
-            Generated answer text
+            Tuple of (generated answer text, token usage dict)
 
         Raises:
             GenerationError: If answer generation fails
@@ -102,7 +102,13 @@ class AnswerGenerator:
                 token_type="completion"
             ).inc(usage.completion_tokens)
 
-            return answer
+            # Prepare token usage dict
+            usage_dict = {
+                "input": usage.prompt_tokens,
+                "output": usage.completion_tokens
+            }
+
+            return answer, usage_dict
 
         except Exception as e:
             logger.error(f"Error generating answer: {e}")

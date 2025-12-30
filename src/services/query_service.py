@@ -15,6 +15,7 @@ from src.services.feedback import FeedbackService
 from src.models.query_log import QueryLog
 from src.core.metrics import query_counter, query_duration
 from src.core.config import settings
+from src.utils.cost_calculator import CostCalculator
 
 
 class QueryService:
@@ -90,8 +91,26 @@ class QueryService:
                 # Save only summary to chat history for token efficiency
                 await self.memory_service.add_assistant_message(memory_key, rag_result.answer)
 
-            # 4. Log query
+            # 4. Calculate costs
             processing_time_ms = (time.time() - start_time) * 1000
+            tokens_data = {
+                "embedding": {"input": rag_result.tokens_used.embedding},
+                "query_expansion": {
+                    "input": rag_result.tokens_used.query_expansion_input,
+                    "output": rag_result.tokens_used.query_expansion_output,
+                },
+                "reranking": {
+                    "input": rag_result.tokens_used.reranking_input,
+                    "output": rag_result.tokens_used.reranking_output,
+                },
+                "generation": {
+                    "input": rag_result.tokens_used.generation_input,
+                    "output": rag_result.tokens_used.generation_output,
+                },
+            }
+            costs = CostCalculator.calculate_cost(tokens_data)
+
+            # 5. Log query
             await self._log_query(
                 query_id=query_id,
                 question=question,
@@ -104,16 +123,19 @@ class QueryService:
                 metadata=metadata or {},
             )
 
-            # 5. Update metrics
+            # 6. Update metrics
             query_counter.labels(source=source.value).inc()
             query_duration.labels(source=source.value).observe(processing_time_ms / 1000)
 
-            # 6. Return result
+            # 7. Return result
             return QueryResult(
                 query_id=query_id,
                 answer=rag_result.answer,
                 sources=rag_result.sources,
                 processing_time_ms=processing_time_ms,
+                response_time_seconds=processing_time_ms / 1000,
+                estimated_cost_usd=costs["usd"],
+                estimated_cost_rub=costs["rub"],
                 timestamp=datetime.utcnow(),
                 context_used=rag_result.retrieved_docs,
             )
