@@ -8,6 +8,7 @@ class Settings(BaseSettings):
 
     # OpenAI Configuration
     OPENAI_API_KEY: str
+    OPENAI_BASE_URL: Optional[str] = None  # Custom base URL, e.g. https://polza.ai/api/v1
     EMBEDDING_MODEL: str = "text-embedding-ada-002"
     EMBEDDING_DIMENSIONS: int = 1536
     LLM_MODEL: str = "gpt-4o-mini"

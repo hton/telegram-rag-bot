@@ -22,7 +22,7 @@ async def test_openai():
     logger.info(f"Embedding Model: {settings.EMBEDDING_MODEL}")
 
     try:
-        client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+        client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY, base_url=settings.OPENAI_BASE_URL)
 
         # Test embeddings
         logger.info("Testing embeddings...")
